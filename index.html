@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Сарбаст Онлайн Заказ</title>
+<style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; margin: 0; padding: 0; }
+    .container { width: 100%; max-width: 500px; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideUp 0.6s ease-out; margin: 20px auto; }
+    @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .header { background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); padding: 30px 20px; text-align: center; }
+    .header h1 { color: white; font-size: 28px; margin: 0 0 10px 0; font-weight: 700; letter-spacing: 1px; }
+    .header p { color: rgba(255,255,255,0.9); font-size: 16px; margin: 0; line-height: 1.5; }
+    .content { padding: 30px; }
+    .form-group { margin-bottom: 25px; }
+    .form-group label { display: block; font-weight: 600; color: #2c3e50; margin-bottom: 10px; font-size: 16px; }
+    .form-group input { width: 100%; padding: 18px 15px; font-size: 18px; border: 2px solid #e0e6ed; border-radius: 12px; box-sizing: border-box; background: #f8fafc; transition: all 0.3s ease; }
+    .form-group input:focus { border-color: #27ae60; background: white; outline: none; box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.1); }
+    .next-btn { background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: white; border: none; padding: 20px; font-size: 18px; font-weight: 600; border-radius: 12px; width: 100%; cursor: pointer; transition: all 0.3s ease; display: flex; justify-content: center; align-items: center; gap: 10px; }
+    .next-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(39, 174, 96, 0.3); }
+    .next-btn:active { transform: translateY(0); }
+    .next-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .step-indicator { text-align: center; color: #7f8c8d; font-size: 14px; margin-top: 20px; font-weight: 500; }
+    
+    /* Main app styles */
+    #mainApp { display: none; animation: fadeIn 0.5s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    h2 { text-align: center; font-size: 32px; color: #2c3e50; margin: 15px 0; font-weight: bold; }
+    .tabs { display: flex; gap: 5px; margin-bottom: 15px; }
+    .tab { flex: 1; padding: 15px 5px; font-size: 18px; text-align: center; background: #bdc3c7; border-radius: 12px 12px 0 0; cursor: pointer; font-weight: bold; transition: 0.3s; }
+    .tab.active { background: #27ae60; color: white; }
+    .tab-content { display: none; background: white; padding: 15px; border-radius: 0 0 15px 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    .tab-content.active { display: block; }
+    .product { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; padding: 12px; border-radius: 10px; background: #f8f9fa; border: 1px solid #eee; }
+    .product-left { display: flex; align-items: center; gap: 12px; flex: 1; }
+    .product-image { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 2px solid #ddd; transition: transform 0.2s; }
+    .product-image:hover { transform: scale(1.05); border-color: #27ae60; }
+    .product-info { display: flex; flex-direction: column; flex: 1; }
+    .product-name { font-weight: bold; color: #2c3e50; font-size: 18px; }
+    .product-price { font-size: 16px; color: #27ae60; font-weight: bold; margin-top: 4px; }
+    .product input { width: 80px; height: 45px; font-size: 20px; text-align: center; border-radius: 8px; border: 2px solid #ccc; outline: none; }
+    .product input:focus { border-color: #27ae60; }
+    .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+    button { padding: 12px; font-size: 18px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; min-height: 70px; transition: 0.2s; }
+    button:active { transform: scale(0.96); }
+    .btn-green { background: #27ae60; color: white; }
+    .btn-purple { background: #9b59b6; color: white; }
+    .btn-blue { background: #3498db; color: white; }
+    .btn-red { background: #e74c3c; color: white; }
+    
+    /* Modal styles */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
+    .modal-content { background: white; margin: 5% auto; border-radius: 15px; width: 95%; max-width: 500px; max-height: 85vh; overflow-y: auto; position: relative; animation: slideIn 0.3s; }
+    @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-header { background: #27ae60; color: white; padding: 15px; text-align: center; font-size: 22px; font-weight: bold; }
+    .modal-body { padding: 20px; }
+    .nakladnoy-content { font-family: 'Courier New', monospace; font-size: 16px; white-space: pre-line; background: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 15px; line-height: 1.4; }
+    .total-line { font-weight: bold; color: #e74c3c; font-size: 20px; text-align: center; border-top: 2px solid #eee; padding-top: 10px; }
+    .close-modal { position: absolute; right: 15px; top: 12px; font-size: 28px; cursor: pointer; color: white; }
+    
+    /* Image modal */
+    .image-modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); }
+    .image-modal-content { margin: auto; display: block; max-width: 90%; max-height: 90%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 10px; box-shadow: 0 0 20px rgba(255,255,255,0.3); }
+    .close-image-modal { position: absolute; right: 25px; top: 15px; color: white; font-size: 40px; font-weight: bold; cursor: pointer; z-index: 2001; }
+    
+    .history-item { background: #fff; padding: 15px; margin-bottom: 10px; border-left: 5px solid #27ae60; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .history-details { font-size: 13px; color: #7f8c8d; margin-top: 5px; border-top: 1px solid #eee; padding-top: 5px; }
+    .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #34495e; color: white; padding: 12px 25px; border-radius: 30px; display: none; z-index: 2000; font-weight: bold; }
+    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #27ae60; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 10px auto; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .client-info-bar { background: #f8f9fa; padding: 12px 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid #27ae60; }
+    .client-info-bar h3 { margin: 0 0 8px 0; color: #2c3e50; font-size: 18px; }
+    .client-info-bar p { margin: 4px 0; color: #7f8c8d; font-size: 15px; }
+</style>
+</head>
+<body>
+
+<!-- First Page - Client Info -->
+<div class="container" id="firstPage">
+    <div class="header">
+        <h1>SARBAST ONLINE</h1>
+        <p>Здравствуйте! Здесь вы можете оставить онлайн-заказ на продукцию Sarbast в любое удобное для вас время</p>
+    </div>
+    <div class="content">
+        <div class="form-group">
+            <label for="clientName">Имя клиента:</label>
+            <input type="text" id="clientName" placeholder="Введите ваше имя" autocomplete="name">
+        </div>
+        <div class="form-group">
+            <label for="clientPhone">Телефон:</label>
+            <input type="tel" id="clientPhone" value="+998" placeholder="+998XXXXXXXXX" autocomplete="tel">
+        </div>
+        <button class="next-btn" onclick="goToMainApp()">
+            Далее 
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+        </button>
+        <div class="step-indicator">Шаг 1 из 2</div>
+    </div>
+</div>
+
+<!-- Second Page - Main App -->
+<div class="container" id="mainApp">
+    <div class="client-info-bar" id="clientInfoBar">
+        <h3>👤 Информация о клиенте</h3>
+        <p id="displayClientName"></p>
+        <p id="displayClientPhone"></p>
+    </div>
+
+    <h2>Сарбаст Онлайн Заказ</h2>
+
+    <div class="tabs">
+        <div class="tab active" onclick="openTab('pet')">PET</div>
+        <div class="tab" onclick="openTab('rgb')">RGB</div>
+        <div class="tab" onclick="openTab('can')">CAN</div>
+    </div>
+
+    <div id="pet" class="tab-content active">
+        <!-- PET Products -->
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/jZGByhGK/image.png" alt="Sarbast Lite PET 1.5L" class="product-image" onclick="openImageModal('https://i.ibb.co/jZGByhGK/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Sarbast Lite PET 1.5L</div>
+                    <div class="product-price">115 479 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Sarbast Lite PET 1.5L" data-sum="115479">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/Mx7tybyt/image.png" alt="Sarbast Original PET 1.5L" class="product-image" onclick="openImageModal('https://i.ibb.co/Mx7tybyt/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Sarbast Original PET 1.5L</div>
+                    <div class="product-price">115 479 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Sarbast Original PET 1.5L" data-sum="115479">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/XrdbXNv0/image.png" alt="Sarbast Special PET 1.5L" class="product-image" onclick="openImageModal('https://i.ibb.co/XrdbXNv0/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Sarbast Special PET 1.5L</div>
+                    <div class="product-price">115 479 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Sarbast Special PET 1.5L" data-sum="115479">
+        </div>
+    </div>
+
+    <div id="rgb" class="tab-content">
+        <!-- RGB Products -->
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/VYS9YzRQ/image.png" alt="Sarbast Lite RGB 0.5L" class="product-image" onclick="openImageModal('https://i.ibb.co/VYS9YzRQ/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Sarbast Lite RGB 0.5L</div>
+                    <div class="product-price">218 077 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Sarbast Lite RGB 0.5L" data-sum="218077">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/hFQL6kJZ/image.png" alt="Sarbast Original RGB 0.5L" class="product-image" onclick="openImageModal('https://i.ibb.co/hFQL6kJZ/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Sarbast Original RGB 0.5L</div>
+                    <div class="product-price">218 077 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Sarbast Original RGB 0.5L" data-sum="218077">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/KjQ2wYb1/image.png" alt="Sarbast Special RGB 0.5L" class="product-image" onclick="openImageModal('https://i.ibb.co/KjQ2wYb1/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Sarbast Special RGB 0.5L</div>
+                    <div class="product-price">234 855 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Sarbast Special RGB 0.5L" data-sum="234855">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/0bVnN4C/image.png" alt="Tuborg Green RGB 0.5L" class="product-image" onclick="openImageModal('https://i.ibb.co/0bVnN4C/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Tuborg Green RGB 0.5L</div>
+                    <div class="product-price">268 307 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Tuborg Green RGB 0.5L" data-sum="268307">
+        </div>
+        <div class="product">
+        <div class="product-left">
+        <img src="https://i.ibb.co/BVPqKqtK/image.png" alt="Tuborg Lite RGB 0.5L" class="product-image" onclick="openImageModal('https://i.ibb.co/BVPqKqtK/image.png')">
+        <div class="product-info">
+        <div class="product-name">Tuborg Lite RGB 0.5L</div>
+        <div class="product-price">268 307 UZS</div>
+        </div>
+        </div>
+        <input type="number" value="0" data-name="Tuborg Lite RGB 0.5L" data-sum="268307">
+        </div>
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/W4BwfPYB/image.png" alt="Zatecky Gus Svetly RGB" class="product-image" onclick="openImageModal('https://i.ibb.co/W4BwfPYB/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Zatecky Gus Svetly RGB</div>
+                    <div class="product-price">251 632 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Zatecky Gus Svetly RGB" data-sum="251632">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/j9FFyk1F/image.png" alt="Zatecky Gus Export RGB" class="product-image" onclick="openImageModal('https://i.ibb.co/j9FFyk1F/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Zatecky Gus Export RGB</div>
+                    <div class="product-price">251 632 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Zatecky Gus Export RGB" data-sum="251632">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/FLqZChS9/image.png" alt="Carlsberg Pilsner RGB" class="product-image" onclick="openImageModal('https://i.ibb.co/FLqZChS9/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Carlsberg Pilsner RGB</div>
+                    <div class="product-price">301 580 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Carlsberg Pilsner RGB" data-sum="301580">
+        </div>
+    </div>
+
+    <div id="can" class="tab-content">
+        <!-- CAN Products -->
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/k6mzVNyZ/image.png" alt="Sarbast Lite CAN 0.45L" class="product-image" onclick="openImageModal('https://i.ibb.co/k6mzVNyZ/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Sarbast Lite CAN 0.45L</div>
+                    <div class="product-price">241 529 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Sarbast Lite CAN 0.45L" data-sum="241529">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/Kpg7YDBf/image.png" alt="Sarbast Original CAN 0.45L" class="product-image" onclick="openImageModal('https://i.ibb.co/Kpg7YDBf/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Sarbast Original CAN 0.45L</div>
+                    <div class="product-price">241 529 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Sarbast Original CAN 0.45L" data-sum="241529">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/qMp3ktm5/image.png" alt="Sarbast Unfiltred CAN 0.45L" class="product-image" onclick="openImageModal('https://i.ibb.co/qMp3ktm5/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Sarbast Unfiltred CAN 0.45L</div>
+                    <div class="product-price">261 693 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Sarbast Unfiltred CAN 0.45L" data-sum="261693">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/kgyTZGnv/image.png" alt="Sarbast Special CAN 0.45L" class="product-image" onclick="openImageModal('https://i.ibb.co/kgyTZGnv/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Sarbast Special CAN 0.45L</div>
+                    <div class="product-price">261 693 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Sarbast Special CAN 0.45L" data-sum="261693">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/Tx8ZWGCM/image.png" alt="Tuborg Green CAN 0.45L" class="product-image" onclick="openImageModal('https://i.ibb.co/Tx8ZWGCM/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Tuborg Green CAN 0.45L</div>
+                    <div class="product-price">321 968 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Tuborg Green CAN 0.45L" data-sum="321968">
+        </div>
+        <div class="product">
+        <div class="product-left">
+        <img src="https://i.ibb.co/FLzfgqQx/image.png" alt="Tuborg Lite CAN 0.45L" class="product-image" onclick="openImageModal('https://i.ibb.co/FLzfgqQx/image.png')">
+        <div class="product-info">
+        <div class="product-name">Tuborg Lite CAN 0.45L</div>
+        <div class="product-price">321 968 UZS</div>
+        </div>
+        </div>
+        <input type="number" value="0" data-name="Tuborg Lite CAN 0.45L" data-sum="321968">
+        </div>
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/WN4qDGtY/image.png" alt="Zatecky Gus Svetly CAN" class="product-image" onclick="openImageModal('https://i.ibb.co/WN4qDGtY/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Zatecky Gus Svetly CAN</div>
+                    <div class="product-price">301 958 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Zatecky Gus Svetly CAN" data-sum="301958">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/r25F7v5m/image.png" alt="Zatecky Gus Export CAN" class="product-image" onclick="openImageModal('https://i.ibb.co/r25F7v5m/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Zatecky Gus Export CAN</div>
+                    <div class="product-price">301 958 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Zatecky Gus Export CAN" data-sum="301958">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/9mQbCvfg/image.png" alt="Zatecky Gus Krepkiy CAN" class="product-image" onclick="openImageModal('https://i.ibb.co/9mQbCvfg/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Zatecky Gus Krepkiy CAN</div>
+                    <div class="product-price">301 958 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Zatecky Gus Krepkiy CAN" data-sum="301958">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/pjJW2ZJD/image.png" alt="Zatecky Gus Nefiltrovaniy CAN" class="product-image" onclick="openImageModal('https://i.ibb.co/pjJW2ZJD/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Zatecky Gus Nefiltrovaniy CAN</div>
+                    <div class="product-price">301 958 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Zatecky Gus Nefiltrovaniy CAN" data-sum="301958">
+        </div>
+        
+        <div class="product">
+            <div class="product-left">
+                <img src="https://i.ibb.co/ycJ4djWC/image.png" alt="Carlsberg Pilsner CAN" class="product-image" onclick="openImageModal('https://i.ibb.co/ycJ4djWC/image.png')">
+                <div class="product-info">
+                    <div class="product-name">Carlsberg Pilsner CAN</div>
+                    <div class="product-price">361 896 UZS</div>
+                </div>
+            </div>
+            <input type="number" value="0" data-name="Carlsberg Pilsner CAN" data-sum="361896">
+        </div>
+    </div>
+
+    <div class="buttons">
+        <button class="btn-green" onclick="showCalcModal('nakladnoyModal', true)">📝 Накладной</button>
+        <button class="btn-purple" onclick="showCalcModal('orderModal', false)">🛒 Заказ бериу</button>
+        <button class="btn-blue" onclick="showHistory()">📚 История</button>
+        <button class="btn-red" onclick="resetAll()">🔄 Сброс</button>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="image-modal">
+        <span class="close-image-modal" onclick="closeImageModal()">×</span>
+        <img class="image-modal-content" id="expandedImg">
+    </div>
+
+    <div id="nakladnoyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">НАКЛАДНОЙ <span class="close-modal" onclick="closeModal('nakladnoyModal')">×</span></div>
+            <div class="modal-body">
+                <div id="nakBody" class="nakladnoy-content"></div>
+                <div id="nakTotal" class="total-line"></div>
+                <button class="btn-blue" style="width:100%; margin-top:15px;" onclick="copyText('nakBody', 'nakTotal')">📋 Копировать</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">ЗАКАЗ БЕРИУ <span class="close-modal" onclick="closeModal('orderModal')">×</span></div>
+            <div class="modal-body">
+                <div class="client-info-bar" style="margin-bottom: 20px;">
+                    <h4>Информация о клиенте:</h4>
+                    <p><strong>Имя:</strong> <span id="modalClientName"></span></p>
+                    <p><strong>Телефон:</strong> <span id="modalClientPhone"></span></p>
+                </div>
+                <div id="orderBody" class="nakladnoy-content"></div>
+                <div id="orderTotal" class="total-line"></div>
+                <div id="loader" style="display:none;"><div class="loader"></div></div>
+                <button class="btn-green" id="sendBtn" style="width:100%; margin-top:15px;" onclick="handleSend()">📤 Юбориш</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">ЗАКАЗЛАР ТАРИХИ <span class="close-modal" onclick="closeModal('historyModal')">×</span></div>
+            <div class="modal-body">
+                <div id="historyList"></div>
+                <button class="btn-red" style="width:100%; margin-top:15px;" onclick="clearHistory()">🗑️ Тарихни тозалаш</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="notification">Nusxalandi!</div>
+</div>
+
+<script>
+    let clientName = '';
+    let clientPhone = '';
+
+    // Check if client data exists in localStorage
+    function checkSavedClient() {
+        const savedName = localStorage.getItem('sarbast_client_name');
+        const savedPhone = localStorage.getItem('sarbast_client_phone');
+        
+        if (savedName && savedPhone) {
+            document.getElementById('clientName').value = savedName;
+            document.getElementById('clientPhone').value = savedPhone;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', checkSavedClient);
+
+    // Image modal functions
+    function openImageModal(imageSrc) {
+        const modal = document.getElementById('imageModal');
+        const img = document.getElementById('expandedImg');
+        img.src = imageSrc;
+        modal.style.display = 'block';
+    }
+
+    function closeImageModal() {
+        document.getElementById('imageModal').style.display = 'none';
+    }
+
+    // Close image modal when clicking outside the image
+    document.getElementById('imageModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeImageModal();
+        }
+    });
+
+    function goToMainApp() {
+        clientName = document.getElementById('clientName').value.trim();
+        clientPhone = document.getElementById('clientPhone').value.trim();
+        
+        if (!clientName) {
+            alert("Пожалуйста, введите имя клиента!");
+            document.getElementById('clientName').focus();
+            return;
+        }
+        
+        // Validate phone number format: +998XXXXXXXXX
+        const phoneRegex = /^\+998\d{9}$/;
+        if (!phoneRegex.test(clientPhone)) {
+            alert("Пожалуйста, введите корректный номер телефона в формате +998XXXXXXXXX (12 цифр)!\nНапример: +998901234567");
+            document.getElementById('clientPhone').focus();
+            return;
+        }
+        
+        // Save client data to localStorage
+        localStorage.setItem('sarbast_client_name', clientName);
+        localStorage.setItem('sarbast_client_phone', clientPhone);
+        
+        // Display client info in the app
+        document.getElementById('displayClientName').textContent = `👤 ${clientName}`;
+        document.getElementById('displayClientPhone').textContent = `📞 ${clientPhone}`;
+        document.getElementById('modalClientName').textContent = clientName;
+        document.getElementById('modalClientPhone').textContent = clientPhone;
+        
+        // Animate transition
+        document.getElementById('firstPage').style.animation = 'slideUp 0.6s ease-out reverse';
+        setTimeout(() => {
+            document.getElementById('firstPage').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+        }, 300);
+    }
+
+    const CONFIG = {
+        TOKEN: "8514381139:AAHgtXqLNeAdbyf8Nm0DpK7FiSgrccM-S2A",
+        CHAT_ID: "7414942129"
+    };
+
+    // Auto-remove zero on focus
+    document.querySelectorAll('input[type="number"]').forEach(inp => {
+        inp.addEventListener('focus', function() { 
+            if(this.value === "0") this.value = ""; 
+        });
+        inp.addEventListener('blur', function() { 
+            if(this.value === "" || isNaN(parseInt(this.value))) this.value = "0"; 
+        });
+        inp.addEventListener('input', function() {
+            if (parseInt(this.value) < 0) this.value = "0";
+        });
+    });
+
+    function openTab(id) {
+        document.querySelectorAll('.tab, .tab-content').forEach(el => el.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        document.getElementById(id).classList.add('active');
+    }
+
+    function format(n) { 
+        if (n === 0) return "0";
+        return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " "); 
+    }
+
+    function closeModal(id) { 
+        document.getElementById(id).style.display = "none"; 
+    }
+
+    function getOrderData() {
+        let list = [], total = 0;
+        document.querySelectorAll('input[type="number"]').forEach(inp => {
+            let val = parseInt(inp.value) || 0;
+            if(val > 0) {
+                let p = parseInt(inp.dataset.sum);
+                let name = inp.dataset.name;
+                let sum = val * p;
+                list.push({ name, val, p, sum });
+                total += sum;
+            }
+        });
+        return { list, total };
+    }
+
+    function showCalcModal(modalId, isNak) {
+        let data = getOrderData();
+        if(data.list.length === 0) { 
+            alert("Kamida 1 ta mahsulot kiriting!"); 
+            return; 
+        }
+        
+        let text = "";
+        data.list.forEach(i => {
+            text += `${i.name}\n`;
+            text += `${i.val} бл x ${format(i.p)} = ${format(i.sum)} UZS\n\n`;
+        });
+        
+        document.getElementById(isNak ? 'nakBody' : 'orderBody').innerText = text;
+        
+        let totalText = `ЖАМИ: ${format(data.total)} UZS`;
+        
+        document.getElementById(isNak ? 'nakTotal' : 'orderTotal').innerText = totalText;
+        document.getElementById(modalId).style.display = "block";
+    }
+
+    async function handleSend() {
+        let data = getOrderData();
+        if(data.list.length === 0) { 
+            alert("Kamida 1 ta mahsulot kiriting!"); 
+            return; 
+        }
+
+        let btn = document.getElementById('sendBtn');
+        let loader = document.getElementById('loader');
+
+        btn.disabled = true;
+        btn.textContent = "Юкланмоқда...";
+        loader.style.display = "block";
+
+        // Calculate optom price only for Sarbast products for Telegram message
+        let optomTotal = 0;
+        data.list.forEach(item => {
+            if (item.name.toUpperCase().includes('SARBAST')) {
+                optomTotal += Math.round(item.sum * 0.95);
+            } else {
+                optomTotal += item.sum;
+            }
+        });
+
+        // Format date and time
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('uz-UZ', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+        const timeStr = now.toLocaleTimeString('uz-UZ', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        // Create message in requested format
+        let msg = `🛒 *YANGI BUYURТМА*\n`;
+        msg += `👤 *Mijoz:* ${clientName}\n`;
+        msg += `📞 *Telefon:* ${clientPhone}\n`;
+        msg += `────────────────────\n\n`;
+        
+        msg += `*Buyurtma tafsilotlari:*\n`;
+        data.list.forEach(i => {
+            // Format as requested: "Sarbast Original PET 1,5L ● 2 (блок)"
+            let formattedName = i.name.replace('1.5L', '1,5L').replace('0.5L', '0,5L').replace('0.45L', '0,45L');
+            msg += `• ${formattedName} ● ${i.val} (блок)\n`;
+        });
+        
+        msg += `\n💰 *Jami summa:* ${format(data.total)} UZS`;
+        if (optomTotal < data.total) {
+            msg += `\n💹 *Optom narxi:* ${format(optomTotal)} UZS`;
+        }
+        msg += `\n\n📅 *Sana:* ${dateStr}\n`;
+        msg += `⏰ *Vaqt:* ${timeStr}\n\n`;
+        msg += `📲 *Qo'ng'iroq qilish uchun:* [${clientPhone}](tel:${clientPhone.replace('+', '')})`;
+
+        try {
+            let res = await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chat_id: CONFIG.CHAT_ID, 
+                    text: msg, 
+                    parse_mode: 'Markdown',
+                    disable_web_page_preview: true
+                })
+            });
+            
+            if(res.ok) {
+                saveToHistory(data, optomTotal);
+                showToast("✅ Buyurtma yuborildi!");
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else { 
+                showToast("❌ Xatolik! Bot sozlamalarini tekshiring."); 
+            }
+        } catch(e) { 
+            showToast("❌ Internet aloqasi yo'q!"); 
+        }
+        finally { 
+            btn.disabled = false; 
+            btn.textContent = "📤 Юбориш";
+            loader.style.display = "none"; 
+        }
+    }
+
+    function showToast(message) {
+        let toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.style.display = "block";
+        setTimeout(() => {
+            toast.style.display = "none";
+        }, 3000);
+    }
+
+    function saveToHistory(data, optomTotal) {
+        let hist = JSON.parse(localStorage.getItem('sar_hist') || '[]');
+        let details = data.list.map(i => `${i.name} ● ${i.val} (блок)`).join('\n');
+        hist.unshift({ 
+            name: clientName, 
+            phone: clientPhone,
+            total: data.total, 
+            optTotal: optomTotal,
+            details, 
+            time: new Date().toLocaleString('uz-UZ'),
+            date: new Date().toISOString()
+        });
+        // Keep only last 100 orders
+        localStorage.setItem('sar_hist', JSON.stringify(hist.slice(0, 100)));
+    }
+
+    function showHistory() {
+        let hist = JSON.parse(localStorage.getItem('sar_hist') || '[]');
+        let listDiv = document.getElementById('historyList');
+        
+        if (hist.length === 0) {
+            listDiv.innerHTML = "<p style='text-align:center; color:#7f8c8d; padding: 20px;'>Tarix bo'sh</p>";
+        } else {
+            listDiv.innerHTML = hist.map(h => `
+                <div class="history-item">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="font-size: 16px;">${h.name}</strong>
+                        <span style="color:#27ae60; font-weight: bold;">${format(h.total)} UZS</span>
+                    </div>
+                    <div style="color: #3498db; font-size: 14px; margin: 3px 0;">${h.phone}</div>
+                    <div style="color: #7f8c8d; font-size: 13px; margin-bottom: 5px;">${h.time}</div>
+                    <div class="history-details">${h.details}</div>
+                </div>
+            `).join('');
+        }
+        document.getElementById('historyModal').style.display = "block";
+    }
+
+    function clearHistory() { 
+        if(confirm("Haqiqatan ham barcha tarixni tozalaysizmi?")) { 
+            localStorage.removeItem('sar_hist'); 
+            showHistory(); 
+        } 
+    }
+
+    function resetAll() { 
+        if(confirm("Barcha hisoblarni o'chirasizmi? Bu amalni bekor qilib bo'lmaydi.")) {
+            document.querySelectorAll('input[type="number"]').forEach(inp => {
+                inp.value = "0";
+            });
+            showToast("🔄 Barcha mahsulotlar nolga tushirildi!");
+        }
+    }
+
+    function copyText(bodyId, totalId) {
+        let text = document.getElementById(bodyId).innerText + "\n" + document.getElementById(totalId).innerText;
+        let el = document.createElement('textarea');
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        
+        showToast("📋 Nusxalandi!");
+    }
+
+    window.onclick = function(e) { 
+        if(e.target.className === 'modal') e.target.style.display = "none"; 
+        if(e.target.className === 'image-modal') closeImageModal();
+    }
+
+    // Auto-format phone number to +998XXXXXXXXX format
+    document.getElementById('clientPhone').addEventListener('input', function(e) {
+        let value = this.value.replace(/\D/g, '');
+        
+        // Always start with +998
+        if (!value.startsWith('998')) {
+            value = '998' + value;
+        }
+        
+        // Limit to 12 digits total (998 + 9 digits)
+        if (value.length > 12) {
+            value = value.substring(0, 12);
+        }
+        
+        // Format as +998XXXXXXXXX
+        this.value = '+998' + value.substring(3);
+    });
+
+    // Check if we should skip first page (if data exists in localStorage)
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedName = localStorage.getItem('sarbast_client_name');
+        const savedPhone = localStorage.getItem('sarbast_client_phone');
+        
+        if (savedName && savedPhone) {
+            document.getElementById('clientName').value = savedName;
+            document.getElementById('clientPhone').value = savedPhone;
+        }
+    });
+</script>
+</body>
+</html>
