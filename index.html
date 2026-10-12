@@ -415,7 +415,7 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
         </div>
         <div class="form-group">
             <label for="clientPhone">Telefon raqami</label>
-            <input type="tel" id="clientPhone" value="+998" placeholder="+998XXXXXXXXX" autocomplete="tel" inputmode="numeric">
+            <input type="tel" id="clientPhone" value="+998 " placeholder="+998 90 123 45 67" maxlength="17" autocomplete="tel" inputmode="numeric">
         </div>
 
         <div class="location-box" id="locationBox" onclick="requestLocation()">
@@ -453,6 +453,7 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
     <div class="client-pill" id="clientInfoBar">
         <div class="row"><span class="icon">👤</span><b id="displayClientName"></b></div>
         <div class="row"><span class="icon">📞</span><span id="displayClientPhone"></span></div>
+        <div class="row"><a href="#" onclick="changeUser(); return false;" style="font-size:12px; color:#6fb7ff;">✏️ Ism/raqamni o'zgartirish</a></div>
         <div class="row" id="displayLocationRow" style="display:none;"><span class="icon">📍</span><span class="addr-text" id="displayLocation"></span></div>
     </div>
 
@@ -772,6 +773,80 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
     let clientPhone = '';
     let clientLocation = null; // { lat, lng, link }
 
+    // ---------- Saved profile & history (localStorage) ----------
+    const PROFILE_KEY = 'sarbast_profile';
+    const HISTORY_KEY = 'sarbast_history';
+    const PROFILE_TTL = 90 * 24 * 60 * 60 * 1000; // 90 kun
+
+    function loadProfile() {
+        try {
+            const p = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null');
+            if (p && p.name && p.phone && (Date.now() - p.ts) < PROFILE_TTL) return p;
+        } catch (e) {}
+        return null;
+    }
+    function saveProfile(name, phone) {
+        try { localStorage.setItem(PROFILE_KEY, JSON.stringify({ name, phone, ts: Date.now() })); } catch (e) {}
+    }
+    function clearProfile() {
+        try { localStorage.removeItem(PROFILE_KEY); } catch (e) {}
+    }
+    function loadHistory() {
+        try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') || []; } catch (e) { return []; }
+    }
+    function persistHistory() {
+        try { localStorage.setItem(HISTORY_KEY, JSON.stringify(orderHistory)); } catch (e) {}
+    }
+    function updateLocationDisplay() {
+        const show = !!clientLocation;
+        const locText = show ? (clientLocation.address || `${clientLocation.lat}, ${clientLocation.lng}`) : '';
+        ['display', 'modal'].forEach(pfx => {
+            const row = document.getElementById(pfx + 'LocationRow');
+            const txt = document.getElementById(pfx + 'Location');
+            if (row) row.style.display = show ? 'flex' : 'none';
+            if (txt) txt.textContent = locText;
+        });
+    }
+    // +998901234567 -> +998 90 123 45 67
+    function fmtPhone(canon) {
+        let d = String(canon || '').replace(/\D/g, '');
+        if (d.startsWith('998')) d = d.slice(3);
+        d = d.slice(0, 9);
+        const g = [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean);
+        return '+998' + (g.length ? ' ' + g.join(' ') : ' ');
+    }
+
+    // Koordinatadan qisqa manzil: "Ko'cha nomi, 12-uy, Shahar"
+    async function reverseGeocode(lat, lng) {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 7000);
+        try {
+            const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=uz,ru`, { signal: ctrl.signal });
+            if (!r.ok) return null;
+            const j = await r.json();
+            const a = j.address || {};
+            const street = a.road || a.pedestrian || a.residential || a.footway || a.path || a.living_street || '';
+            const house = a.house_number ? a.house_number + '-uy' : '';
+            const area = a.neighbourhood || a.suburb || a.quarter || a.city_district || '';
+            const city = a.city || a.town || a.village || a.municipality || a.county || '';
+            let parts = [];
+            if (street) { parts.push(street); if (house) parts.push(house); if (city) parts.push(city); }
+            else { if (area) parts.push(area); if (city) parts.push(city); }
+            if (!parts.length && j.display_name) parts = j.display_name.split(',').slice(0, 2).map(x => x.trim());
+            return parts.length ? parts.join(', ') : null;
+        } catch (e) { return null; }
+        finally { clearTimeout(t); }
+    }
+
+    function changeUser() {
+        clearProfile();
+        document.getElementById('mainApp').style.display = 'none';
+        document.getElementById('firstPage').style.display = '';
+        document.getElementById('clientName').value = '';
+        document.getElementById('clientPhone').value = '+998 ';
+        window.scrollTo(0, 0);
+    }
+
     // ---------- Helpers ----------
     function format(n) {
         if (!n) return "0";
@@ -808,13 +883,22 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
             function(pos) {
                 const lat = pos.coords.latitude.toFixed(6);
                 const lng = pos.coords.longitude.toFixed(6);
-                clientLocation = {
+                const loc = {
                     lat, lng,
-                    link: `https://maps.google.com/?q=${lat},${lng}`
+                    link: `https://maps.google.com/?q=${lat},${lng}`,
+                    address: null
                 };
+                clientLocation = loc;
                 box.classList.add('granted');
                 box.classList.remove('denied');
-                text.textContent = `📍 Manzil aniqlandi: ${lat}, ${lng}`;
+                text.textContent = `📍 Manzil aniqlanmoqda...`;
+                updateLocationDisplay();
+                reverseGeocode(lat, lng).then(addr => {
+                    if (clientLocation !== loc) return; // yangiroq so'rov bor
+                    loc.address = addr;
+                    text.textContent = addr ? `📍 ${addr}` : `📍 Manzil aniqlandi: ${lat}, ${lng}`;
+                    updateLocationDisplay();
+                });
             },
             function(err) {
                 box.classList.add('denied');
@@ -825,6 +909,7 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
                     text.textContent = "Manzilni aniqlab bo'lmadi. Davom etishingiz mumkin.";
                 }
                 clientLocation = null;
+                updateLocationDisplay();
             },
             { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
         );
@@ -834,6 +919,13 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
     window.addEventListener('DOMContentLoaded', function() {
         if ('geolocation' in navigator) {
             requestLocation();
+        }
+        // Avval kirgan bo'lsa — ism/telefon so'ramasdan to'g'ri asosiy sahifaga o'tadi
+        const saved = loadProfile();
+        if (saved) {
+            document.getElementById('clientName').value = saved.name;
+            document.getElementById('clientPhone').value = fmtPhone(saved.phone);
+            goToMainApp();
         }
     });
 
@@ -854,7 +946,7 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
     // ---------- First page -> Main app ----------
     function goToMainApp() {
         clientName = document.getElementById('clientName').value.trim();
-        clientPhone = document.getElementById('clientPhone').value.trim();
+        clientPhone = '+' + document.getElementById('clientPhone').value.replace(/\D/g, '');
 
         if (!clientName) {
             showToast("⚠️ Ismingizni kiriting!");
@@ -864,23 +956,18 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
 
         const phoneRegex = /^\+998\d{9}$/;
         if (!phoneRegex.test(clientPhone)) {
-            showToast("⚠️ Telefon: +998XXXXXXXXX (12 raqam)");
+            showToast("⚠️ Telefon: +998 90 123 45 67");
             document.getElementById('clientPhone').focus();
             return;
         }
 
         document.getElementById('displayClientName').textContent = clientName;
-        document.getElementById('displayClientPhone').textContent = clientPhone;
+        document.getElementById('displayClientPhone').textContent = fmtPhone(clientPhone);
         document.getElementById('modalClientName').textContent = clientName;
-        document.getElementById('modalClientPhone').textContent = clientPhone;
+        document.getElementById('modalClientPhone').textContent = fmtPhone(clientPhone);
 
-        if (clientLocation) {
-            const locText = `${clientLocation.lat}, ${clientLocation.lng}`;
-            document.getElementById('displayLocation').textContent = locText;
-            document.getElementById('displayLocationRow').style.display = 'flex';
-            document.getElementById('modalLocation').textContent = locText;
-            document.getElementById('modalLocationRow').style.display = 'flex';
-        }
+        saveProfile(clientName, clientPhone);
+        updateLocationDisplay();
 
         const fp = document.getElementById('firstPage');
         fp.classList.add('leaving');
@@ -999,7 +1086,7 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
         const timeStr = now.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
 
         const safeName = escapeMarkdown(clientName);
-        const safePhone = escapeMarkdown(clientPhone);
+        const safePhone = escapeMarkdown(fmtPhone(clientPhone));
 
         let msg = `🛒 *YANGI BUYURTMA*\n`;
         msg += `👤 *Mijoz:* ${safeName}\n`;
@@ -1022,7 +1109,8 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
         msg += `⏰ *Vaqt:* ${escapeMarkdown(timeStr)}`;
 
         if (clientLocation) {
-            msg += `\n📍 *Manzil:* [Xaritada ko'rish](${clientLocation.link})`;
+            const addrLabel = clientLocation.address ? escapeMarkdown(clientLocation.address) : "Xaritada ko'rish";
+            msg += `\n📍 *Manzil:* [${addrLabel}](${clientLocation.link})`;
         }
 
         try {
@@ -1058,7 +1146,7 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
     }
 
     // ---------- History (in-memory) ----------
-    let orderHistory = [];
+    let orderHistory = loadHistory();
 
     function saveToHistory(data, optomTotal) {
         let details = data.list.map(i => `${i.name} ● ${i.val} (blok)`).join('\n');
@@ -1069,27 +1157,32 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
             optTotal: optomTotal,
             details,
             time: new Date().toLocaleString('uz-UZ'),
-            location: clientLocation ? clientLocation.link : null
+            location: clientLocation ? clientLocation.link : null,
+            address: clientLocation ? clientLocation.address : null
         });
         if (orderHistory.length > 100) orderHistory = orderHistory.slice(0, 100);
+        persistHistory();
     }
 
     function showHistory() {
         let listDiv = document.getElementById('historyList');
 
-        if (orderHistory.length === 0) {
+        // Tarix manzilga emas, telefon raqamiga bog'liq
+        const myOrders = orderHistory.filter(h => h.phone === clientPhone);
+
+        if (myOrders.length === 0) {
             listDiv.innerHTML = "<div class='empty-msg'>Tarix bo'sh</div>";
         } else {
-            listDiv.innerHTML = orderHistory.map(h => `
+            listDiv.innerHTML = myOrders.map(h => `
                 <div class="history-item">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <strong style="font-size: 14px;">${h.name}</strong>
                         <span style="color:#d4af37; font-weight: 700; font-size: 13px;">${format(h.total)} UZS</span>
                     </div>
-                    <div style="color: #6fb7ff; font-size: 12px; margin: 3px 0;">${h.phone}</div>
+                    <div style="color: #6fb7ff; font-size: 12px; margin: 3px 0;">${fmtPhone(h.phone)}</div>
                     <div style="color: #8b97a3; font-size: 12px; margin-bottom: 4px;">${h.time}</div>
                     <div class="history-details">${h.details}</div>
-                    ${h.location ? `<div style="margin-top:6px;"><a href="${h.location}" target="_blank" style="color:#2ecc71; font-size:12px;">📍 Manzilni ko'rish</a></div>` : ''}
+                    ${h.location ? `<div style="margin-top:6px;"><a href="${h.location}" target="_blank" style="color:#2ecc71; font-size:12px;">📍 ${h.address || "Manzilni ko'rish"}</a></div>` : ''}
                 </div>
             `).join('');
         }
@@ -1099,7 +1192,8 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
     }
 
     function clearHistory() {
-        orderHistory = [];
+        orderHistory = orderHistory.filter(h => h.phone !== clientPhone);
+        persistHistory();
         showHistory();
         showToast("🗑️ Tarix tozalandi");
     }
@@ -1141,12 +1235,7 @@ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
 
     // ---------- Phone auto-format ----------
     document.getElementById('clientPhone').addEventListener('input', function() {
-        let digits = this.value.replace(/\D/g, '');
-        if (!digits.startsWith('998')) {
-            digits = '998' + digits.replace(/^998/, '');
-        }
-        if (digits.length > 12) digits = digits.substring(0, 12);
-        this.value = '+' + digits;
+        this.value = fmtPhone(this.value);
     });
 
     // ---------- EXTRA: live total ----------
